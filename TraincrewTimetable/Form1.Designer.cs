@@ -34,7 +34,7 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(282, 138);
+            ClientSize = new Size(282, 217);
             Name = "Form1";
             Text = "スタフ検索 | スタフ表示 - ダイヤ運転会";
             Load += Form1_Load;

@@ -4,10 +4,12 @@ using System.Runtime.InteropServices;
 
 namespace TraincrewTimetable
 {
+    // 既存のImageDisplayFormをこのまま残し、クラス名は変更しない
     public class ImageDisplayForm : Form
     {
         private PictureBox pictureBox;
         private Image originalImage;
+        private bool overlayEnabled; // ← 追加（必要なら）
 
         // フォーム移動用
         private Point mouseDownLocation;
@@ -25,12 +27,23 @@ namespace TraincrewTimetable
         private const int WM_NCHITTEST = 0x84;
         private const int RESIZE_HANDLE_SIZE = 10;
 
+        // 3引数コンストラクタを追加
+        public ImageDisplayForm(Image image, int percent, bool overlay)
+            : this(image, percent)
+        {
+            overlayEnabled = overlay;
+            // overlayEnabledを使った処理が必要ならここに追加
+        }
+
         public ImageDisplayForm(Image image, int percent = 100)
         {
             this.Text = "画像表示";
             this.TopMost = true;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.None; // ボーダーレス
+            this.AllowTransparency = true;                // 透過を有効に
+            this.BackColor = Color.Magenta;               // 透過色を指定
+            this.TransparencyKey = Color.Magenta;         // 透過色を指定
             this.MinimumSize = new Size(100, 100);
 
             // オリジナル画像を保持
@@ -39,7 +52,10 @@ namespace TraincrewTimetable
             pictureBox = new PictureBox
             {
                 Dock = DockStyle.Fill,
-                SizeMode = PictureBoxSizeMode.CenterImage
+                SizeMode = PictureBoxSizeMode.StretchImage, // ★ここをCenterImage→StretchImageに変更
+                Margin = Padding.Empty, // ★余白を消す
+                Padding = Padding.Empty, // ★余白を消す
+                BackColor = Color.Magenta // PictureBoxの背景も透過色に
             };
             Controls.Add(pictureBox);
 
@@ -70,16 +86,25 @@ namespace TraincrewTimetable
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                g.Clear(Color.Transparent);
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
+                g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+                g.Clear(Color.Transparent); // 透過でクリア
+
+                // 画像を描画（アンチエイリアス部分も透過になる）
                 g.DrawImage(originalImage, 0, 0, w, h);
             }
             var old = pictureBox.Image;
             pictureBox.Image = bmp;
             if (old != null && old != originalImage) old.Dispose();
-            pictureBox.SizeMode = PictureBoxSizeMode.CenterImage;
 
-            // ウィンドウサイズも画像サイズに合わせて変更
+            // 画像サイズ=UIサイズにする
             this.ClientSize = new Size(w, h);
+            pictureBox.Dock = DockStyle.None;
+            pictureBox.Location = new Point(0, 0);
+            pictureBox.Size = new Size(w, h);
+            pictureBox.SizeMode = PictureBoxSizeMode.Normal;
         }
 
         // フォーム移動

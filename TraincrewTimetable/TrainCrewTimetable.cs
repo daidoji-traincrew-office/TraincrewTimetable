@@ -11,7 +11,7 @@ namespace TraincrewTimetable
         private TrackBar scaleBar;
         private Label scaleLabel;
         private Button closeButton;
-        private ImageDisplayForm displayForm; // 画像表示フォームの参照
+        private SimpleImageDisplayForm displayForm; // 画像表示フォームの参照
 
         // searchBox.KeyDown += (s, e) => ... の重複を削除し、正しくイベントハンドラを登録
         public TrainCrewTimetable()
@@ -90,7 +90,7 @@ namespace TraincrewTimetable
                         displayForm = null;
                     }
 
-                    displayForm = new ImageDisplayForm(bmp, percent);
+                    displayForm = new SimpleImageDisplayForm(bmp, percent);
                     displayForm.Show();
                 }
             }
@@ -117,6 +117,89 @@ namespace TraincrewTimetable
                 e.Handled = true;
                 e.SuppressKeyPress = true;
             }
+        }
+    }
+
+    public class SimpleImageDisplayForm : Form // ← クラス名を変更
+    {
+        private Image originalImage;
+        private PictureBox pictureBox;
+
+        public SimpleImageDisplayForm(Image image, int percent = 100)
+        {
+            this.Text = "画像表示";
+            this.TopMost = true;
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.FormBorderStyle = FormBorderStyle.None; // ボーダーレス
+            this.MinimumSize = new Size(100, 100);
+            this.BackColor = Color.Transparent; // フォーム自体の背景を透明に
+
+            // 透過を有効にする
+            this.AllowTransparency = true;
+            this.TransparencyKey = Color.Magenta; // 透過色を指定
+
+            // オリジナル画像を保持
+            originalImage = (Image)image.Clone();
+
+            pictureBox = new PictureBox
+            {
+                BackColor = Color.Magenta, // PictureBoxの余白も透過色で塗る
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                Location = new Point(0, 0),
+                SizeMode = PictureBoxSizeMode.Normal
+            };
+            Controls.Add(pictureBox);
+
+            // マウスイベント（フォームとPictureBox両方に適用）
+            this.MouseDown += ImageDisplayForm_MouseDown;
+            this.MouseMove += ImageDisplayForm_MouseMove;
+            pictureBox.MouseDown += ImageDisplayForm_MouseDown;
+            pictureBox.MouseMove += ImageDisplayForm_MouseMove;
+
+            // 初期倍率で表示
+            SetScalePercent(percent);
+        }
+
+        public void SetScalePercent(int percent)
+        {
+            if (originalImage == null) return;
+            if (percent == 0)
+            {
+                pictureBox.Image = null;
+                return;
+            }
+            int w = originalImage.Width * percent / 100;
+            int h = originalImage.Height * percent / 100;
+            if (w < 1) w = 1;
+            if (h < 1) h = 1;
+
+            Bitmap bmp = new Bitmap(w, h);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                g.Clear(Color.Magenta); // 透過色で塗る
+                g.DrawImage(originalImage, 0, 0, w, h);
+            }
+            var old = pictureBox.Image;
+            pictureBox.Image = bmp;
+            if (old != null && old != originalImage) old.Dispose();
+
+            this.ClientSize = new Size(w, h);
+            pictureBox.Dock = DockStyle.None;
+            pictureBox.Location = new Point(0, 0);
+            pictureBox.Size = new Size(w, h);
+            pictureBox.SizeMode = PictureBoxSizeMode.Normal;
+        }
+
+        private void ImageDisplayForm_MouseDown(object sender, MouseEventArgs e)
+        {
+            // マウスダウンイベントの処理
+        }
+
+        private void ImageDisplayForm_MouseMove(object sender, MouseEventArgs e)
+        {
+            // マウスムーブイベントの処理
         }
     }
 }
