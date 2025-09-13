@@ -9,6 +9,7 @@ namespace TraincrewTimetable
     {
         private TextBox searchBox;
         private Button searchButton;
+        private ComboBox searchComboBox;
         private TrackBar scaleBar;
         private Label scaleLabel;
         private Button closeButton;
@@ -54,12 +55,25 @@ namespace TraincrewTimetable
             }
 
             // UIの初期化
-            searchBox = new TextBox { Left = 10, Top = 10, Width = 150 };
-            searchButton = new Button { Left = 170, Top = 8, Width = 60, Text = "表示" };
+            searchBox = new TextBox { Left = 10, Top = 10, Width = 100 };
+            searchBox.TextChanged += SearchBox_TextChanged;
+            searchButton = new Button { Left = 220, Top = 8, Width = 60, Text = "表示" };
+            searchComboBox = new ComboBox { Left = 115, Top = 10, Width = 100, Height = 20 };
+            // 画像マップの読み込み後、searchComboBoxに全Keyを追加
+            if (imageMap != null)
+            {
+                searchComboBox.Items.Clear();
+                foreach (var key in imageMap.Keys)
+                {
+                    searchComboBox.Items.Add(key);
+                }
+            }
+            searchComboBox.SelectedIndex = 0;
+
             scaleBar = new TrackBar
             {
                 Left = 10,
-                Top = 60, // ここを40→80など、希望の位置に調整
+                Top = 70, // ここを40→80など、希望の位置に調整
                 Width = 220,
                 Minimum = 0,
                 Maximum = 100,
@@ -71,7 +85,7 @@ namespace TraincrewTimetable
             scaleLabel = new Label
             {
                 Left = 240,
-                Top = 80, // scaleBar.Topと揃える
+                Top = 90, // scaleBar.Topと揃える
                 Width = 50,
                 Height = 20,
                 Text = "100%"
@@ -79,7 +93,7 @@ namespace TraincrewTimetable
             closeButton = new Button
             {
                 Left = 10,
-                Top = 105,
+                Top = 115,
                 Width = 100,
                 Height = 30,
                 Text = "スタフを閉じる"
@@ -147,9 +161,19 @@ namespace TraincrewTimetable
                 }
             };
 
+            searchComboBox.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    SearchButton_Click(searchButton, EventArgs.Empty);
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                }
+            };
 
             Controls.Add(searchBox);
             Controls.Add(searchButton);
+            Controls.Add(searchComboBox);
             Controls.Add(scaleBar);
             Controls.Add(scaleLabel);
             Controls.Add(closeButton);
@@ -159,11 +183,37 @@ namespace TraincrewTimetable
         private void SearchButton_Click(object? sender, EventArgs e)
         {
             errorLabel.Text = ""; // エラー表示をクリア
-            string fileName = searchBox.Text.Trim();
-            if (string.IsNullOrEmpty(fileName)) return;
+            string searchText = searchBox.Text.Trim();
+            string comboText = searchComboBox.Text.Trim();
+            string? matchedKey = null;
 
-            // image_map.jsonによるマッピングのみで表示（絶対パスのみ）
-            if (imageMap != null && imageMap.TryGetValue(fileName, out var relativePath) && !string.IsNullOrEmpty(relativePath))
+            if (string.IsNullOrEmpty(searchText) && string.IsNullOrEmpty(comboText))
+            {
+                errorLabel.Text = $"列車番号を入力してください。";
+                return;
+            }
+
+            // imageMapのキーのうち、searchBoxまたはsearchComboBoxのどちらかと一致するものを探す
+            if (imageMap != null)
+            {
+                foreach (var key in imageMap.Keys)
+                {
+                    if (key.Equals(searchText, StringComparison.CurrentCultureIgnoreCase) ||
+                        key.Equals(comboText, StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        matchedKey = key;
+                        break;
+                    }
+                }
+            }
+
+            if (string.IsNullOrEmpty(matchedKey))
+            {
+                errorLabel.Text = $"{searchText} または {comboText} に対応するスタフが見つかりません。";
+                return;
+            }
+
+            if (imageMap != null && imageMap.TryGetValue(matchedKey, out var relativePath) && !string.IsNullOrEmpty(relativePath))
             {
                 string imagePath = Path.Combine(Application.StartupPath, "image", relativePath.Replace('/', Path.DirectorySeparatorChar));
                 if (File.Exists(imagePath))
@@ -179,7 +229,6 @@ namespace TraincrewTimetable
                             displayForm = null;
                         }
 
-                        // ImageDisplayFormの呼び出しを修正
                         displayForm = new ImageDisplayForm(bmp, percent, overlayCheckBox.Checked);
                         displayForm.Show();
                     }
@@ -191,7 +240,28 @@ namespace TraincrewTimetable
             }
             else
             {
-                errorLabel.Text = $"{fileName} に対応するスタフが見つかりません。";
+                errorLabel.Text = $"{matchedKey} に対応するスタフが見つかりません。";
+            }
+        }
+
+        private void SearchBox_TextChanged(object? sender, EventArgs e)
+        {
+            // 入力に応じてComboBoxの要素を絞り込み
+            string text = searchBox.Text;
+            if (imageMap != null)
+            {
+                searchComboBox.Items.Clear();
+                foreach (var key in imageMap.Keys)
+                {
+                    if (string.IsNullOrEmpty(text) || key.IndexOf(text, StringComparison.CurrentCultureIgnoreCase) >= 0)
+                    {
+                        searchComboBox.Items.Add(key);
+                    }
+                }
+                if (searchComboBox.Items.Count > 0)
+                {
+                    searchComboBox.SelectedIndex = 0;
+                }
             }
         }
 
